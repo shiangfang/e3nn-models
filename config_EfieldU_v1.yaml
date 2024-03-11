@@ -1,0 +1,41 @@
+---
+cutoff: 5.0
+zs: null  # Infers from dataset
+E0s: null  # Infers from dataset
+
+
+dataset:
+  train_path: data/ethanol-train-efield.xyz
+  #valid_path: data/ethanol-train-efield.xyz
+  train_num :  50000
+  valid_num: 1000
+  n_node: 1500
+  n_edge: 9000
+  n_graph: 10
+  seed: 7
+  loader_seed: 5678
+  #valid_fraction: null
+  #valid_num_graphs: 2000
+
+model:
+  #normalization_constant: 8.0
+  num_layers: 2
+  internal_irreps:  64x0e + 64x0o + 48x1o + 48x1e +32x2o + 32x2e       #  32x0e + 32x0o +24x1e + 24x1o + 16x2e +16x2o #   64x0e + 64x0o + 48x1o + 48x1e +32x2o + 32x2e   #32x0e + 32x0o +24x1e + 24x1o + 16x2e +16x2o   #64x0e + 64x0o + 48x1o + 48x1e +32x2o + 32x2e
+  alpha: 0.1
+  seed: 777
+  num_species: 100
+
+training:
+  learning_rate: 0.01
+  steps_per_interval: 100
+  max_num_intervals: 30
+  ema_decay: 0.995
+  patience: 3000
+  energy_weight: 10.0
+  forces_weight: 70.0
+  stress_weight: 0.0
+
+initialization:
+  seed: 0
+  #path: null
+  #reload: 
