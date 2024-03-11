@@ -1,6 +1,6 @@
 # e3nn-models
 
-Here we use e3nn neural network to build generalized models based on the NequIP architecture:
+Here we use e3nn to build the following generalized models based on the NequIP architecture:
 
 1. Generalized energy model to include the electric field dependence for molecules.
 
