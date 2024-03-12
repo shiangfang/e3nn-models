@@ -113,7 +113,7 @@ def predict_becs_eps(
         #), "model output needs to be an array of shape (n_nodes, )"
         return h_node_becs
     
-    node_becs, node_eps = model_fn(graph.nodes.positions, graph.globals.cell)
+    node_becs, node_eps, node_denoising = model_fn(graph.nodes.positions, graph.globals.cell)
     node_becs_sum = e3nn.scatter_sum(node_becs, nel=graph.n_node)
     node_becs_avg = _safe_divide(node_becs_sum , jnp.expand_dims(jnp.expand_dims(graph.n_node,axis=-1),axis=-1))
     node_becs_avg_repeat = jnp.repeat(node_becs_avg,repeats = graph.n_node,axis=0,total_repeat_length=graph.nodes.positions.shape[0])
@@ -128,26 +128,8 @@ def predict_becs_eps(
         "becs_sum": node_becs_sum,  # 
         "becs_avg": node_becs_avg,  # 
         "eps": graph_eps_avg,
+        "node_denoising": node_denoising,
     }
-
-
-def predict_hessian(model, graph: jraph.GraphsTuple):
-    def energy_fn(positions):
-        vectors = positions[graph.receivers] - positions[graph.senders]
-        node_energies = model(
-            vectors, graph.nodes.species, graph.senders, graph.receivers
-        )  # [n_nodes, ]
-        node_energies = node_energies * graph.nodes.mask_primitive
-        return sum_nodes_of_the_same_graph(graph, node_energies)
-    x = graph.nodes.positions.astype(graph.nodes.v1.dtype)
-
-    def leftHright(l, r):
-        return jax.jvp(lambda x: jax.jvp(energy_fn, (x,), (l,))[1], (x,), (r,))[1]
-    
-    return leftHright(graph.nodes.v1, graph.nodes.v2)
-
-
-# do not add jax.jit here
 
 
 

@@ -189,20 +189,4 @@ class WeightedEnergyFrocesStressLoss_Huber:
         )
 
 
-class HessianLoss:
-    def __init__(self) -> None:
-        super().__init__()
-
-    def __call__(self,graph: jraph.GraphsTuple, predictions: jnp.ndarray) -> jnp.ndarray:
-        #λ1p, λ2p, zp = predictions[:, 0], predictions[:, 1], predictions[:, 2]
-        #ph_loss = ph_abs2(λ1p - graph.globals.λ1) + ph_abs2(λ2p - graph.globals.λ2) + ph_abs2(zp)
-        #return ph_loss
-        #return abs2(λ1p - graph.globals.λ1) + abs2(λ2p - graph.globals.λ2) + 2.0*abs2(zp)
-        #return jnp.square(graph.globals.weight * (predictions - graph.globals.hessian.squeeze()))
-        return jnp.square(predictions - graph.globals.hessian.squeeze())
-    
-    def __repr__(self):
-        return (
-            "hessian loss fn"
-        )
     

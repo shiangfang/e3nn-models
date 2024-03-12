@@ -53,21 +53,10 @@ from .blocks import (
     LinearNodeEmbeddingBlock,
 )
 
-
-from nequip_jax import NEQUIPLayerHaiku, filter_layers
-
-
-
 partial = functools.partial
-
-
 Array = jnp.ndarray
-
 UnaryFn = Callable[[Array], Array]
-
 f32 = jnp.float32
-
-
 
 def prod(xs):
     """From e3nn_jax/util/__init__.py."""
@@ -112,12 +101,6 @@ NONLINEARITY = {
     'silu': jax.nn.silu,
 }
 
-
-
-
-
-
-
 def get_nonlinearity_by_name(name: str) -> UnaryFn:
     if name in NONLINEARITY:
         return NONLINEARITY[name]
@@ -129,10 +112,6 @@ def safe_norm(x: jnp.ndarray, axis: int = None, keepdims=False) -> jnp.ndarray:
     """nan-safe norm."""
     x2 = jnp.sum(x**2, axis=axis, keepdims=keepdims)
     return jnp.where(x2 == 0, 1, x2) ** 0.5
-
-
-
-
 
 class NequIPConvolution(hk.Module):
     def __init__(
@@ -355,9 +334,6 @@ class NequIPConvolution(hk.Module):
         return h
 
 
-
-
-
 class NequIPEnergyModel(hk.Module):
     def __init__(
         self,
@@ -404,7 +380,6 @@ class NequIPEnergyModel(hk.Module):
         self.radial_net_n_layers = radial_net_n_layers
         self.num_basis = num_basis
         self.scalar_mlp_std = scalar_mlp_std
-        
         
         #self.node_embedding = LinearNodeEmbeddingBlock(
         #    self.num_species, self.num_features * self.hidden_irreps
@@ -637,17 +612,14 @@ class NequIPEnergyModel_Efield(hk.Module):
         h_node_exp2_0 = Linear(irreps_out = expansion2_matrix.irreps)(h_node)
         h_node_exp2_1 = jnp.einsum('ijk,ak->aij',expansion2_matrix.array,h_node_exp2_0.array)
         h_node_exp2 = jnp.einsum('ai,aij,aj->a',efield,h_node_exp2_1,efield)[:,None]
-        
-        #print('check exp2 shape',h_node_exp2.shape)
-        
         h_node_L1 = Linear(irreps_out=Irrep('1o'))(h_node).array
-        #print('1o component: ',h_node_L1.shape,h_node_L1)
-        #print('Field: ',efield.shape,efield)
         h_node_exp1 = jnp.einsum('ai,ai->a',h_node_L1,efield)[:,None]
-        #print('1o component x E : ',h_node_exp1.shape,h_node_exp1)
-        #print('check L0',h_node_L0.shape,h_node_L0)
         
-        h_node_expansion = h_node_L0  + h_node_exp1 # + h_node_exp2
+        # perturbative expansion to add E field dependent terms
+        # h_node_exp1 ~O(E)
+        # h_node_exp2 ~O(E^2)
+        
+        h_node_expansion = h_node_L0  + h_node_exp1 + h_node_exp2
         
         return h_node_expansion
     
@@ -1130,340 +1102,6 @@ def NequIP_JAXMD_model_Efield(
 
 
 
-class NequIPEnergyModel_MarioJAX(hk.Module):
-    def __init__(
-        self,
-        *,
-        output_irreps : e3nn.Irreps,
-        graph_net_steps: int,
-        use_sc: bool,
-        nonlinearities: Union[str, Dict[str, str]],
-        hidden_irreps: str,
-        max_ell: int = 3,
-        num_basis: int = 8,
-        r_max: float = 4.,
-        num_species: int = None,
-        avg_r_min: float = None,
-        num_features: int = 7,
-        #radial_basis: Callable[[jnp.ndarray], jnp.ndarray],
-        radial_net_nonlinearity: str = 'raw_swish',
-        radial_net_n_hidden: int = 64,
-        radial_net_n_layers: int = 2,
-        #radial_envelope: Callable[[jnp.ndarray], jnp.ndarray],
-        shift: float = 0.,
-        scale: float = 1.,
-        avg_num_neighbors: float = 1.,
-        #scalar_mlp_std: float = 4.0,
-    ):
-        super().__init__()
-        #print('calling Nequip init')
-        
-        output_irreps = e3nn.Irreps(output_irreps)
-        self.output_irreps = output_irreps
-
-        self.num_features = num_features
-        self.max_ell=max_ell
-        self.sh_irreps = e3nn.Irreps.spherical_harmonics(max_ell)
-        self.r_max = r_max
-        self.avg_num_neighbors = avg_num_neighbors
-        self.hidden_irreps = Irreps(hidden_irreps)
-        self.num_species = num_species
-        self.graph_net_steps = graph_net_steps
-        self.use_sc = use_sc
-        #self.nonlinearities = nonlinearities
-        self.radial_net_nonlinearity = radial_net_nonlinearity
-        self.radial_net_n_hidden = radial_net_n_hidden
-        self.radial_net_n_layers = radial_net_n_layers
-        self.num_basis = num_basis
-        #self.scalar_mlp_std = scalar_mlp_std
-        self.num_layers = self.graph_net_steps
-        
-        
-        
-    def __call__(
-        self,
-        vectors: jnp.ndarray,  # [n_edges, 3]
-        node_specie: jnp.ndarray,  # [n_nodes] int between 0 and num_species-1
-        senders: jnp.ndarray,  # [n_edges]
-        receivers: jnp.ndarray,  # [n_edges]
-    ) -> e3nn.IrrepsArray:
-        
-        vectors = e3nn.IrrepsArray("1o", vectors) / self.r_max
-
-        # Embedding: since we have a single atom type, we don't need embedding
-        # The node features are just ones and the species indices are all zeros
-        #emb = self.param("embedding", jax.random.normal, (self.num_species, 32))
-        emb = hk.get_parameter(
-            name = "embedding",
-            shape = (self.num_species, 32),
-            init = hk.initializers.RandomNormal(stddev=1.0),   #jax.random.normal,
-            # dtype=
-        )
-        
-        features = e3nn.as_irreps_array(emb[node_specie])
-        
-        
-        layers = filter_layers(
-            [e3nn.Irreps(self.hidden_irreps)] * (self.num_layers) , 
-            #+ [e3nn.Irreps("128x0e")],
-            max_ell=3,
-        )
-        
-        
-        for irreps in layers:
-            layer = NEQUIPLayerHaiku(
-                even_activation = jax.nn.silu,
-                odd_activation = jax.nn.tanh,
-                gate_activation = jax.nn.silu,
-                mlp_activation = jax.nn.silu,
-                mlp_n_hidden=self.radial_net_n_hidden,
-                mlp_n_layers=self.radial_net_n_layers,
-                n_radial_basis=self.num_basis,
-                avg_num_neighbors=self.avg_num_neighbors,
-                #scalar_mlp_std=self.scalar_mlp_std
-                num_species = self.num_species,
-                max_ell = 3,
-                output_irreps = irreps, #output_irreps = 64 * e3nn.Irreps("0e + 1o + 2e"),
-            )
-            features = layer(vectors, features, node_specie, senders, receivers)
-        
-        features = e3nn.haiku.Linear("16x0e")(features)
-        features = e3nn.haiku.Linear("0e")(features)
-        
-        energy = features.array.squeeze(1)
-        
-        return energy
-
-def NequIP_JAX_model(
-    *,
-    r_max: float,
-    atomic_energies_dict: Dict[int, float] = None,
-    train_graphs: List[jraph.GraphsTuple] = None,
-    initialize_seed: Optional[int] = None,
-    scaling: Callable = None,
-    atomic_energies: Union[str, np.ndarray, Dict[int, float]] = None,
-    avg_num_neighbors: float = "average",
-    avg_r_min: float = None,
-    num_species: int = None,
-    #path_normalization="path",
-    #gradient_normalization="path",
-    learnable_atomic_energies=False,
-    save_dir_name = None,
-    reload = None,
-    #radial_basis: Callable[[jnp.ndarray], jnp.ndarray] = bessel_basis,
-    #radial_envelope: Callable[[jnp.ndarray], jnp.ndarray] = soft_envelope,
-    **kwargs,
-):
-    
-    if reload is None:
-        json_model = {}
-        nequip_model_setup = {}
-
-        if train_graphs is None:
-            z_table = None
-        else:
-            z_table = get_atomic_number_table_from_zs(
-                z for graph in train_graphs for z in graph.nodes.species
-            )
-        logging.info(f"z_table= {z_table}")
-        
-        nequip_model_setup['z_table'] = z_table
-
-        zs_for_json = [int(zs) for zs in z_table.zs]
-        json_model['zs'] = zs_for_json
-
-        if save_dir_name:
-            with open(f"{save_dir_name}/z_table.json", "w") as f:
-                json.dump(zs_for_json, f)
-
-        if avg_num_neighbors == "average":
-            avg_num_neighbors = compute_avg_num_neighbors(train_graphs)
-            print(
-                f"Compute the average number of neighbors: {avg_num_neighbors:.3f}"
-            )
-        else:
-            print(f"Use the average number of neighbors: {avg_num_neighbors:.3f}")
-            
-        nequip_model_setup['avg_num_neighbors'] = avg_num_neighbors
-
-        if avg_r_min == "average":
-            avg_r_min = compute_avg_min_neighbor_distance(train_graphs)
-            print(f"Compute the average min neighbor distance: {avg_r_min:.3f}")
-        elif avg_r_min is None:
-            print("Do not normalize the radial basis (avg_r_min=None)")
-        else:
-            print(f"Use the average min neighbor distance: {avg_r_min:.3f}")
-            
-        nequip_model_setup['avg_r_min'] = avg_r_min
-
-        if atomic_energies is None:
-            if atomic_energies_dict is None or len(atomic_energies_dict) == 0:
-                atomic_energies = "average"
-            else:
-                atomic_energies = "isolated_atom"
-
-        if atomic_energies == "average":
-            atomic_energies_dict = compute_average_E0s(train_graphs, z_table)
-            print(
-                f"Computed average Atomic Energies using least squares: {atomic_energies_dict}"
-            )
-            atomic_energies = np.array(
-                [atomic_energies_dict.get(z, 0.0) for z in range(num_species)]
-            )
-        elif atomic_energies == "isolated_atom":
-            print(
-                f"Using atomic energies from isolated atoms in the dataset: {atomic_energies_dict}"
-            )
-            atomic_energies = np.array(
-                [atomic_energies_dict.get(z, 0.0) for z in range(num_species)]
-            )
-        elif atomic_energies == "zero":
-            print("Not using atomic energies")
-            atomic_energies = np.zeros(num_species)
-        elif isinstance(atomic_energies, np.ndarray):
-            print(
-                f"Use Atomic Energies that are provided: {atomic_energies.tolist()}"
-            )
-            if atomic_energies.shape != (num_species,):
-                print(
-                    f"atomic_energies.shape={atomic_energies.shape} != (num_species={num_species},)"
-                )
-                raise ValueError
-        elif isinstance(atomic_energies, dict):
-            atomic_energies_dict = atomic_energies
-            print(f"Use Atomic Energies that are provided: {atomic_energies_dict}")
-            atomic_energies = np.array(
-                [atomic_energies_dict.get(z, 0.0) for z in range(num_species)]
-            )
-        else:
-            raise ValueError(f"atomic_energies={atomic_energies} is not supported")
-            
-            
-        nequip_model_setup['atomic_energies'] = atomic_energies
-
-        #print(type(atomic_energies),atomic_energies)
-
-        atomic_energies_json = [float(E0) for E0 in atomic_energies]
-        if save_dir_name:
-            with open(f"{save_dir_name}/atomic_energies.json", "w") as f:
-                json.dump(atomic_energies_json, f) #  E0s.tolist()
-
-        json_model['atomic_energies'] = atomic_energies_json
-
-        if save_dir_name:
-            with open(f"{save_dir_name}/model.json", "w") as f:
-                json.dump(json_model, f) #  E0s.tolist()
-
-
-        if scaling is None:
-            mean, std = 0.0, 1.0
-        else:
-            mean, std = scaling(train_graphs, atomic_energies)
-            logging.info(
-                f"Scaling with {scaling.__qualname__}: mean={mean:.2f}, std={std:.2f}"
-            )
-            
-        nequip_model_setup['mean'] = mean
-        nequip_model_setup['std'] = std
-        
-        if save_dir_name:
-            with open(f"{save_dir_name}/nequip_model_setup.pkl", "wb") as f:
-                pickle.dump(nequip_model_setup, f) #  E0s.tolist()
-        
-    else:
-        with open(f"{reload}/nequip_model_setup.pkl", "rb") as f:
-            nequip_model_setup = pickle.load(f)
-            
-        if save_dir_name:
-            with open(f"{save_dir_name}/nequip_model_setup.pkl", "wb") as f:
-                pickle.dump(nequip_model_setup, f) #  E0s.tolist()
-        
-        z_table = nequip_model_setup['z_table']
-        avg_num_neighbors = nequip_model_setup['avg_num_neighbors']
-        avg_r_min = nequip_model_setup['avg_r_min']
-        atomic_energies = nequip_model_setup['atomic_energies']
-        mean = nequip_model_setup['mean']
-        std = nequip_model_setup['std']
-        
-    # check that num_species is consistent with the dataset
-    if z_table is None:
-        if train_graphs is not None:
-            for graph in train_graphs:
-                if not np.all(graph.nodes.species < num_species):
-                    raise ValueError(
-                        f"max(graph.nodes.species)={np.max(graph.nodes.species)} >= num_species={num_species}"
-                    )
-    else:
-        if max(z_table.zs) >= num_species:
-            raise ValueError(
-                f"max(z_table.zs)={max(z_table.zs)} >= num_species={num_species}"
-            )
-
-    kwargs.update(
-        dict(
-            r_max=r_max,
-            avg_num_neighbors=avg_num_neighbors,
-            avg_r_min=avg_r_min,
-            num_species=num_species,
-            #radial_basis=radial_basis,
-            #radial_envelope=radial_envelope,
-        )
-    )
-    
-    print(f"Create NequIP (JAX version) with parameters {kwargs}")
-
-    @hk.without_apply_rng
-    @hk.transform
-    def model_(
-        vectors: jnp.ndarray,  # [n_edges, 3]
-        node_z: jnp.ndarray,  # [n_nodes]
-        senders: jnp.ndarray,  # [n_edges]
-        receivers: jnp.ndarray,  # [n_edges]
-    ) -> jnp.ndarray:
-
-        nequip = NequIPEnergyModel_MarioJAX(output_irreps="0e", **kwargs)
-
-        if hk.running_init():
-            logging.info(
-                "model: "
-                f"hidden_irreps={nequip.hidden_irreps} "
-                f"sh_irreps={nequip.sh_irreps} ",
-            )
-
-        node_energies = nequip(
-            vectors, node_z, senders, receivers
-        )
-        
-        node_energies = mean + std * node_energies
-
-        if learnable_atomic_energies:
-            atomic_energies_ = hk.get_parameter(
-                "atomic_energies",
-                shape=(num_species,),
-                init=hk.initializers.Constant(atomic_energies),
-            )
-        else:
-            #print('energy shift')
-            atomic_energies_ = jnp.asarray(atomic_energies)
-        node_energies += atomic_energies_[node_z]  # [n_nodes, ]
-
-        return node_energies
-
-    if initialize_seed is not None and reload is None:
-        params = jax.jit(model_.init)(
-            jax.random.PRNGKey(initialize_seed),
-            jnp.zeros((1, 3)),
-            jnp.array([16]),
-            jnp.array([0]),
-            jnp.array([0]),
-        )
-    elif reload is not None:
-        with open(f"{reload}/params.pkl", "rb") as f:
-            params = pickle.load(f)
-    else:
-        params = None
-
-    return model_.apply, params, kwargs['graph_net_steps']
 
 
 
