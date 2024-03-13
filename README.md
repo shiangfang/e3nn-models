@@ -46,6 +46,8 @@ For the tutorials, please check out the e3nn-dipdip-eps.ipynb and e3nn-dipdip-be
 
 2. [NequIP: E(3)-equivariant graph neural networks for data-efficient and accurate interatomic potentials](https://www.nature.com/articles/s41467-022-29939-5)
 
+3. [JAX M.D. A Framework for Differentiable Physics](https://papers.nips.cc/paper/2020/file/83d3d4b6c9579515e1679aca8cbc8033-Paper.pdf)
+
 ## Citation
 
 1. [NeurIPS 2023 AI4Mat workshop](https://openreview.net/forum?id=xxyHjer00Y)
