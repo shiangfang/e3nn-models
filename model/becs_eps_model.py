@@ -202,7 +202,7 @@ class BECS_EPS_nequip_base_Model(hk.Module):
         h_node_epsL2 = Linear(irreps_out=Irreps('1x2e'))(h_node)
         
         h_node_eps = jnp.einsum('jki,ai->ajk',cg_L112,h_node_epsL2.array)
-        h_node_eps += jnp.einsum('jki,ai->ajk',cg_L111,h_node_epsL1.array)
+        #h_node_eps += jnp.einsum('jki,ai->ajk',cg_L111,h_node_epsL1.array)
         h_node_eps += jnp.einsum('jki,ai->ajk',cg_L110,h_node_epsL0.array)
         
         h_node_denoising = Linear(irreps_out=Irreps('1x1o'))(h_node).array

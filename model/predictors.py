@@ -107,10 +107,6 @@ def predict_becs_eps(
         h_node_becs = model(
             vectors, graph.nodes.species, graph.senders, graph.receivers
         )  # [n_nodes, ]
-        #print('check shape',node_energies.shape, ' vs. ',len(positions))
-        #assert node_energies.shape[0] == (
-        #    len(positions),
-        #), "model output needs to be an array of shape (n_nodes, )"
         return h_node_becs
     
     node_becs, node_eps, node_denoising = model_fn(graph.nodes.positions, graph.globals.cell)
