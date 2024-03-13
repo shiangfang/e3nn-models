@@ -37,16 +37,21 @@ $$D_{\alpha\beta}(jj',\mathbf{q}\to \mathbf{0}) = D_{\alpha\beta}(jj',\mathbf{q}
 While the Born effective charge model is a nodal prediction task, the dielectric constant matrix modeling is a graph level prediction task.
 The models here are constructed based on the NequIP architecture to generate tensorial output by retaining latent state vectors with higher angular momentum L.
 
-For the tutorials, please check out the e3nn-dipdip-eps.ipynb and e3nn-dipdip-becs.ipynb for training the models for the dielectric matrix and Born effective charge matrix respectively.
+For the tutorials, please check out the e3nn-dipdip-eps.ipynb and e3nn-dipdip-becs.ipynb for training the models to predict the dielectric constant matrix and Born effective charges respectively.
 
 
 ## References
+
+1. [e3nn: Euclidean Neural Networks](https://arxiv.org/abs/2207.09453)
+
+2. [NequIP: E(3)-equivariant graph neural networks for data-efficient and accurate interatomic potentials](https://www.nature.com/articles/s41467-022-29939-5)
+
+## Citation
 
 1. [NeurIPS 2023 AI4Mat workshop](https://openreview.net/forum?id=xxyHjer00Y)
 
 2. [arXiv](https://arxiv.org/)
 
-## Citation
 
 
 
