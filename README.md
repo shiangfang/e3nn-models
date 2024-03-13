@@ -11,7 +11,7 @@ Here we use e3nn to build the following generalized models based on the NequIP a
 
 ## Quick Start
 
-The following steps will guid you through the installation for the phonax library and the tests for tutorial notebooks.
+The following steps will guid you through the installation and the tutorial notebooks.
 
 1. In a conda env with JAX / CUDA available clone and download this repository.
 
@@ -22,12 +22,12 @@ The following steps will guid you through the installation for the phonax librar
 
 
 
-## Introduction
-
+## Introduction and Tutorials
 ### Generalized energy model to include electric field dependence for molecules
 By generalizing the energy functional to include additional control variables such as the external electric field, one can relate the energy functional with various physical quantities such as the electric polarization and the polarizability via the auto-differentiation with respect to these additional variables.
 In this model, we demonstrate this with an ethanol molecule dataset generated with electric field that modifies the energy and atomic forces.
 
+For the tutorial, please check out the notebook e3nn-Efield-potential.ipynb
 
 ### Tensorial models to predict the Born effective charges and the dielectric matrices 
 An equivariant graph neural network that are trainined to predict the Born effective charge matrices and the dielectric constant tensors of a crystal.
@@ -37,30 +37,7 @@ $$D_{\alpha\beta}(jj',\mathbf{q}\to \mathbf{0}) = D_{\alpha\beta}(jj',\mathbf{q}
 While the Born effective charge model is a nodal prediction task, the dielectric constant matrix modeling is a graph level prediction task.
 The models here are constructed based on the NequIP architecture to generate tensorial output by retaining latent state vectors with higher angular momentum L.
 
-
-
-
-
-
-
-
-
-
-
-## Tutorials
-
-### Mass and spring mechanical model for phonon vibrations
-
-
-### Periodic crystalline solids
-
-
-### Molecules
-
-
-## Scripts
-
-
+For the tutorials, please check out the e3nn-dipdip-eps.ipynb and e3nn-dipdip-becs.ipynb for training the models for the dielectric matrix and Born effective charge matrix respectively.
 
 
 ## References
