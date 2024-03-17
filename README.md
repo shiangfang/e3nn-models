@@ -50,7 +50,6 @@ For the tutorials, please check out the e3nn-dipdip-eps.ipynb and e3nn-dipdip-be
 
 1. [NeurIPS 2023 AI4Mat workshop](https://openreview.net/forum?id=xxyHjer00Y)
 
-2. [arXiv](https://arxiv.org/)
 
 
 
