@@ -17,10 +17,8 @@ The following steps will guid you through the installation and the tutorial note
 
 2. In the downloaded directory run:
     ```bash
-    pip install -e .
+    pip install -r requirements.txt
     ```
-
-
 
 ## Introduction and Tutorials
 ### Generalized energy model to include electric field dependence for molecules
